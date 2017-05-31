@@ -1,9 +1,10 @@
 OSA
 ====
 
-Flow:
 
-..code_block::
+.. code_block:: bash
+
+  Deployment Flow:
 
   ┌────────────────────┐     ┌────────────────┐     ┌────────────┐
   │ Prepare deployment |     | Prepare target |     | Configure  |
