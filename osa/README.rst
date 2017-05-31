@@ -1,8 +1,7 @@
 OSA
 ====
 
-
-.. code_block:: bash
+.. code-block:: bash
 
   Deployment Flow:
 
