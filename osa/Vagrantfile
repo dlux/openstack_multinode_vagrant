@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  # Using vagrant multi-machine configuration. More info see
+  # https://www.vagrantup.com/docs/multi-machine/
+
+  common_conf = {
+    vagrant_box:"ubuntu/xenial64"
+    net_oct:"192.168.35."
+  }
+
+  config.vm.define "deployer" do |deployer|
+    deployer.vm.box = common_conf['vagrant_box']
+    deployer.vm.box_check_update = false
+    deployer.vm.hostname = 'deployer'
+    deployer.vm.network "private_network", ip: common_conf['net_oct'] + "10"
+    deployer.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+    end
+    deployer.vm.provision "shell", inline: <<-SHELL
+        apt-get update
+    end
+  end
+
+  config.vm.define "controller" do |controller|
+    controller.vm.box = common_conf['vagrant_box']
+    controller.vm.box_check_update = false
+    controller.vm.hostname = 'controller1'
+    controller.vm.network "private_network", ip: common_conf['net_oct'] + "11"
+  end
+end
