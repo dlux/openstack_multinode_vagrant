@@ -1,0 +1,37 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  # Using vagrant multi-machine configuration. More info see
+  # https://www.vagrantup.com/docs/multi-machine/
+
+  CONF = {
+    'vagrant_box'    =>  'centos/7',
+    'net'            =>  '192.168.40.1',
+  }
+
+  # Install Undercloud
+  config.vm.define "undercloud" do |undercloud|
+    undercloud.vm.box = CONF['vagrant_box']
+    undercloud.vm.box_check_update = false
+    undercloud.vm.hostname = 'undercloud1'
+    undercloud.vm.network "private_network", ip: CONF['net'] + "0"
+    undercloud.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+    end
+#    undercloud.vm.provision "shell", path: "install_undercloud.sh"
+  end
+
+  # Provision 3 VMs for the Overcloud
+  (1..3).each do |i|
+    config.vm.define "OV-#{i}" do |node|
+      node.vm.box = CONF['vagrant_box']
+      node.vm.network "private_network", ip: CONF['net'] + "#{i}"
+      node.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+      end
+    end
+ end 
+
+end
