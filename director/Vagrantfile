@@ -5,33 +5,42 @@ Vagrant.configure("2") do |config|
 
   # Using vagrant multi-machine configuration. More info see
   # https://www.vagrantup.com/docs/multi-machine/
+  # with ansible provisioner - Executing Ansible from host server
+  # https://www.vagrantup.com/docs/provisioning/ansible_intro.html
 
   CONF = {
     'vagrant_box'    =>  'centos/7',
-    'net'            =>  '192.168.40.1',
+    'net'            =>  '192.168.40.',
+    'pxe_net'        =>  '192.168.24.',
   }
 
   # Install Undercloud
   config.vm.define "undercloud" do |undercloud|
     undercloud.vm.box = CONF['vagrant_box']
     undercloud.vm.box_check_update = false
-    undercloud.vm.hostname = 'undercloud1'
-    undercloud.vm.network "private_network", ip: CONF['net'] + "0"
+    undercloud.vm.hostname = 'undercloud.dlux.com'
+    undercloud.vm.network "private_network", ip: CONF['pxe_net'] + "4"
+    undercloud.vm.network "private_network", ip: CONF['net'] + "4"
+    #undercloud.vm.network "forwarded_port", guest: 22, host: 2200
     undercloud.vm.provider "virtualbox" do |vb|
-        vb.memory = "1024"
+        vb.memory = 1024*4
     end
-#    undercloud.vm.provision "shell", path: "install_undercloud.sh"
+    # Install Undercloud
+    config.vm.provision :ansible do |ansible|
+      ansible.sudo = true
+      ansible.playbook = "undercloud.yml"
+    end
   end
 
   # Provision 3 VMs for the Overcloud
-  (1..3).each do |i|
-    config.vm.define "OV-#{i}" do |node|
-      node.vm.box = CONF['vagrant_box']
-      node.vm.network "private_network", ip: CONF['net'] + "#{i}"
-      node.vm.provider "virtualbox" do |vb|
-        vb.memory = "1024"
-      end
-    end
- end 
+  #(1..3).each do |i|
+  #  config.vm.define "OV-#{i}" do |node|
+  #    node.vm.box = CONF['vagrant_box']
+  #    node.vm.network "private_network", ip: CONF['net'] + "#{i}"
+  #    node.vm.provider "virtualbox" do |vb|
+  #      vb.memory = "1024"
+  #    end
+  #  end
+ #end 
 
 end

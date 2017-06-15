@@ -1,0 +1,124 @@
+---
+- hosts: undercloud
+  vars_file:
+    - vars.yml
+  tasks:
+  - name: PRE - Fail non RHEL OS based
+    fail: msg="The system must be RHEL based. It is {{ ansible_os_family }}"
+    when: ansible_os_family != "RedHat" 
+    
+  - name: PRE - Upgrade all packages
+    yum: name=* state=latest
+
+  - name: PRE - Install packages
+    yum: name={{item}} state=installed
+    with_items:
+      - wget
+      - curl
+      - vim
+      - yum-utils
+
+  - name: PRE - Add {{ auth.non_root_user }} user
+    user: name={{ auth.non_root_user }} password={{ auth.password | password_hash('sha512') }}
+  - name: PRE - Add {{ auth.non_root_user }} user to sudoers
+    lineinfile: 
+      destfile: /etc/sudoers.d/{{ auth.non_root_user }}
+      state: present
+      line: "{{ auth.non_root_user }} ALL=(root) NOPASSWD:ALL"
+      create: true
+      mode: 0440
+
+  - name: PRE - Create setup folders
+    file: path={{ item }} state=directory
+    with_items:
+      - ~/image
+      - ~/templates
+    become_user: "{{ auth.non_root_user }}"
+
+  - name: PRE - Ensure host name
+    hostname: name="undercloud{{ auth.domain }}"
+  - name: PRE - Ensure host name is on /etc/hosts
+    lineinfile:
+      destfile: /etc/hosts
+      line: "127.0.0.1 "    
+
+  - name: PRE - Register RHEL OS nodes
+    shell: |
+      subscription-manager register --username="USERNAME" --password="PASSWORD"
+      subscription-manager list --available --all
+      subscription-manager attach --pool=pool_id
+      subscription-manager repos --disable=*
+      subscription-manager repos --enable=rhel-7-server-rpms --enable=rhel-7-server-extras-rpms
+      subscription-manager repos --enable=rhel-7-server-rh-common-rpms --enable=rhel-ha-for-rhel-7-server-rpms
+      subscription-manager repos --enable=rhel-7-server-openstack-11-rpms
+    when: ansible_distribution == "Red Hat Enterprise Linux"
+
+  - name: PRE - Upgrade packages after registering
+    yum: name=* state=latest
+    when: ansible_distribution == "Red Hat Enterprise Linux"
+
+  - name: PRE - Reboot after registering
+    command: /sbin/shutdown -r +1
+    async: 0
+    poll: 0
+    ignore_errors: true
+    when: ansible_distribution == "Red Hat Enterprise Linux"
+
+  - name: wait until host reboot - via sshd
+    local_action: wait_for host={{ ansible_ssh_host }} port={{ ansible_ssh_port }} state=started
+    become: False
+
+  - name: Give network more time
+    pause: seconds={{ genv.timeout }}
+
+  - name: Get RDO {{ openstack.release }} delorian repos
+    get_url:
+      dest: /etc/yum.repos.d/delorean-{{ openstack.release }}.repo
+      url: https://trunk.rdoproject.org/centos7-{{ openstack.release }}/current/delorean.repo
+      validate_certs: no
+      timeout: 30
+
+  - name: Get RDO {{ openstack.release }} delorean deps repo
+    get_url: 
+      dest: /etc/yum.repos.d/delorean-deps-{{ openstack.release }}.repo
+      url: https://trunk.rdoproject.org/centos7-{{ openstack.release }}/delorean-deps.repo
+      validate_certs: no
+      timeout: 30
+
+  - name: Install CentOS storage SIG Ceph/Jewel repository for Ceph
+    yum: name=centos-release-ceph-jewel enablerepo=extras
+
+  - name: Patch jewel ceph repo
+    replace: destfile=/etc/yum.repos.d/CentOS-Ceph-Jewel.repo regexp='gpgcheck=.*' replace='gpgcheck=0'
+
+  - name: Install plugin priorities and tripleo client
+    yum: 
+      name={{ item }}
+    with_items:
+      - yum-plugin-priorities
+      - python-tripleoclient
+
+  - name: Create director configuration file
+    copy:
+      src: /usr/share/instack-undercloud/undercloud.conf.sample
+      dest: ~/undercloud.conf
+      remote_src: True
+    become_user: "{{ auth.non_root_user }}"
+  #- name: Setup director configuration values
+  #  lineinfile:
+  #    destfile: ~/undercloud.conf
+  #    line: "{{ item.line }}"
+  #    insertafter: "{{ item.regex }}"
+  #    state: present
+  #  with_items:
+      #- { regex: "local_interface", line: "local_interface = eth2" }
+      #- { regex: "", line: "" }
+  # become_user: "{{ auth.non_root_user }}"
+
+  - name: Install undercloud
+    shell: |
+      openstack undercloud install
+    become_user: "{{ auth.non_root_user }}"
+
+  environment: "{{ genv.proxy_env }}"
+ 
