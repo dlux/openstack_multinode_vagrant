@@ -1,7 +1,5 @@
 ---
 - hosts: undercloud
-  vars_file:
-    - vars.yml
   tasks:
   - name: PRE - Fail non RHEL OS based
     fail: msg="The system must be RHEL based. It is {{ ansible_os_family }}"
@@ -120,5 +118,7 @@
       openstack undercloud install
     become_user: "{{ auth.non_root_user }}"
 
+  vars_files: 
+    - vars.yml
   environment: "{{ genv.proxy_env }}"
  

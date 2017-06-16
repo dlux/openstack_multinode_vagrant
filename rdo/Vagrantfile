@@ -23,7 +23,7 @@ Vagrant.configure("2") do |config|
     undercloud.vm.network "private_network", ip: CONF['net'] + "4"
     #undercloud.vm.network "forwarded_port", guest: 22, host: 2200
     undercloud.vm.provider "virtualbox" do |vb|
-        vb.memory = 1024*4
+        vb.memory = 1024*2
     end
     # Install Undercloud
     config.vm.provision :ansible do |ansible|
